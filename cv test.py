@@ -6,9 +6,11 @@ import matplotlib.axes._axes as axes
 
 def mouse_draw_rect(event, x, y, flags, param):
     global x1, x2, y1, y2
+    draw = False
     if event == cv2.EVENT_LBUTTONDOWN:
         x1 = x
         y1 = y
+        draw = True
 
     if event == cv2.EVENT_LBUTTONUP:
         x2 = x
@@ -29,7 +31,10 @@ def mouse_draw_rect(event, x, y, flags, param):
         y1 = 0
         y2 = 0
 
+
     if event == cv2.EVENT_MOUSEMOVE:
+        if not draw:
+            return
         if x1 == 0 or y1 == 0:
             return
         x2 = x
@@ -92,19 +97,38 @@ if __name__ == '__main__':
         gray = cv2.cvtColor(ki, cv2.COLOR_BGR2GRAY)
         vt = capture.get(cv2.CAP_PROP_POS_MSEC)
         t[i] = vt
-        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 0.5, 5, param1=100, param2=25, minRadius=5, maxRadius=9)
-        if circles is not None:
+        ret, binary = cv2.threshold(gray, 67, 255, cv2.THRESH_BINARY)
+        se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
+        # edges = cv2.Canny(binary, 50, 100)
+        # circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 5, param1=100, param2=10, minRadius=8, maxRadius=8)
+        # if circles is not None:
+        #     nn += 1
+        #     # print(circles[0])
+        #     xx = circles[0][0][0]
+        #     yy = circles[0][0][1]
+        #     rr = circles[0][0][2]
+        #     cir_c_x[i] = xx
+        #     cir_c_y[i] = yy
+        #     cir_r[i] = rr
+        #     cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
+        #     # cv2.imshow(cropwin, ki)
+        #     # print(vt, xx, yy, rr, len(circles))
+        #     # cv2.waitKey(0)
+        params = cv2.SimpleBlobDetector_Params()
+        detector = cv2.SimpleBlobDetector.create(params)
+        kypts = detector.detect(binary)
+        for kp in kypts:
             nn += 1
-            # print(circles[0])
-            x = circles[0][0][0]
-            y = circles[0][0][1]
-            r = circles[0][0][2]
-            cir_c_x[i] = x
-            cir_c_y[i] = y
-            cir_r[i] = r
-            cv2.circle(ki, (int(x), int(y)), int(r), (0, 0, 255), 1, 10, 0)
+            xx = kp.pt[0]
+            yy = kp.pt[1]
+            rr = kp.size / 2
+            cir_c_x[i] = xx
+            cir_c_y[i] = yy
+            cir_r[i] = rr
+            cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
             # cv2.imshow(cropwin, ki)
-            # print(vt, x, y, r, len(circles))
+            # print(vt, xx, yy, rr, len(circles))
             # cv2.waitKey(0)
         i += 1
 
@@ -113,21 +137,27 @@ if __name__ == '__main__':
             break
     print(nn, total_frame)
 
+    nzero = np.where(cir_r!=0)
+    cc_x_res = cir_c_x[nzero]
+    cc_y_res = cir_c_y[nzero]
+    cc_r_res = cir_r[nzero]
+
     cv2.destroyAllWindows()
-    cc_x_mean = np.mean(cir_c_x)
-    cc_y_mean = np.mean(cir_c_y)
-    cc_r_mean = np.mean(cir_r)
-    print(np.std(cir_r))
+    cc_x_mean = np.mean(cc_x_res)
+    cc_y_mean = np.mean(cc_y_res)
+    cc_r_mean = np.mean(cc_r_res)
+    tt = t[nzero]
+    print(np.std(cc_r_res))
 
     ax1 = plt.subplot(311)  # type:axes.Axes
-    ax1.set_ylim(cc_x_mean * 0.9, cc_x_mean * 1.1)
+    # ax1.set_ylim(cc_x_mean * 0.9, cc_x_mean * 1.1)
 
-    plt.plot(t, cir_c_x)
+    plt.plot(tt, cc_x_res)
     ax2 = plt.subplot(312)
-    ax2.set_ylim(cc_y_mean * 0.9, cc_y_mean * 1.1)
-    plt.plot(t, cir_c_y)
+    # ax2.set_ylim(cc_y_mean * 0.9, cc_y_mean * 1.1)
+    plt.plot(tt, cc_y_res)
     ax3 = plt.subplot(313)
-    ax3.set_ylim(cc_r_mean * 0.85, cc_r_mean * 1.15)
-    plt.plot(t, cir_r)
+    # ax3.set_ylim(cc_r_mean * 0.85, cc_r_mean * 1.15)
+    plt.plot(tt, cc_r_res)
 
     plt.show()

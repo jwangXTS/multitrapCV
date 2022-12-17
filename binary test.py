@@ -9,7 +9,7 @@ def thres_adj(nn):
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
     # cv2.imshow(mwname, binary)
     edges = cv2.Canny(binary, 50, 100)
-    circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 100, param1=100, param2=20, minRadius=5, maxRadius=15)
+    circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 100, param1=100, param2=20, minRadius=5, maxRadius=9)
     im1 = np.copy(img)
     if circles is not None:
         for circle in circles[0]:
