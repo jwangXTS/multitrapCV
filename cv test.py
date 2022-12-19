@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.axes._axes as axes
+import matplotlib.figure as figure
+from hot_calibration import hot_calibration
 
 
 def mouse_draw_rect(event, x, y, flags, param):
@@ -147,23 +149,36 @@ if __name__ == '__main__':
     cc_x_res = cir_c_x[nzero]
     cc_y_res = cir_c_y[nzero]
     cc_r_res = cir_r[nzero]
-
+    x_histo = np.histogram(cc_x_res, bins=50, range=(np.min(cc_x_res), np.max(cc_x_res)))
     cv2.destroyAllWindows()
     cc_x_mean = np.mean(cc_x_res)
     cc_y_mean = np.mean(cc_y_res)
     cc_r_mean = np.mean(cc_r_res)
     tt = t[nzero]
     print(np.std(cc_r_res))
+    fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
 
-    ax1 = plt.subplot(311)  # type:axes.Axes
+    ax1 = fig.add_subplot(321)  # type:axes.Axes
     # ax1.set_ylim(cc_x_mean * 0.9, cc_x_mean * 1.1)
-
     plt.plot(tt, cc_x_res)
-    ax2 = plt.subplot(312)
+    ax1h = fig.add_subplot(322)
+    plt.hist(cc_x_res, orientation='horizontal', bins=25, density=True)
+
+    ax2 = fig.add_subplot(323)
     # ax2.set_ylim(cc_y_mean * 0.9, cc_y_mean * 1.1)
     plt.plot(tt, cc_y_res)
-    ax3 = plt.subplot(313)
+    ax2h = fig.add_subplot(324)
+    plt.hist(cc_y_res, orientation='horizontal', bins=25, density=True)
+    ax3 = fig.add_subplot(325)
     # ax3.set_ylim(cc_r_mean * 0.85, cc_r_mean * 1.15)
     plt.plot(tt, cc_r_res)
+    ax3h = fig.add_subplot(326)
+    plt.hist(cc_r_res, orientation='horizontal', bins=25, density=True)
 
     plt.show()
+
+    cali = hot_calibration(magEx=True)
+    print(f'Equipartition: kx={cali.equipartition(cc_x_res)}, ky={cali.equipartition(cc_y_res)}')
+    pkx = cali.potential_analysis(cc_x_res, showplot=True)
+    pky = cali.potential_analysis(cc_y_res, showplot=True)
+    print(f'Potential analysis: kx={pkx}, ky={pky}')
