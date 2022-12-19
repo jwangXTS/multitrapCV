@@ -5,8 +5,8 @@ import matplotlib.axes._axes as axes
 
 
 def mouse_draw_rect(event, x, y, flags, param):
-    global x1, x2, y1, y2
-    draw = False
+    global x1, x2, y1, y2, draw
+
     if event == cv2.EVENT_LBUTTONDOWN:
         x1 = x
         y1 = y
@@ -30,7 +30,7 @@ def mouse_draw_rect(event, x, y, flags, param):
         x2 = 0
         y1 = 0
         y2 = 0
-
+        draw = False
 
     if event == cv2.EVENT_MOUSEMOVE:
         if not draw:
@@ -53,7 +53,8 @@ if __name__ == '__main__':
     y1 = 0
     y2 = 0
     crop = []
-    video_path = './b2.avi'
+    video_path = './F=27.55.avi'
+    draw = False
 
     capture = cv2.VideoCapture(video_path)
 
@@ -71,6 +72,8 @@ if __name__ == '__main__':
     cv2.setMouseCallback(winname, mouse_draw_rect)
     cropwin = 'crop'
     cv2.namedWindow(cropwin, cv2.WINDOW_AUTOSIZE)
+    binwin = 'binary'
+    cv2.namedWindow(binwin, cv2.WINDOW_AUTOSIZE)
 
     ret, img = capture.read()
     ilast = np.copy(img)
@@ -89,15 +92,15 @@ if __name__ == '__main__':
     # c = cv2.waitKey(0)
     i = 0
     nn = 0
-    print('Hough Circle begins...')
+    print('Blob Circle begins...')
+    draw = False
     while True:
         # print(i)
         ki = img[y1:y2, x1:x2]
-
         gray = cv2.cvtColor(ki, cv2.COLOR_BGR2GRAY)
         vt = capture.get(cv2.CAP_PROP_POS_MSEC)
         t[i] = vt
-        ret, binary = cv2.threshold(gray, 67, 255, cv2.THRESH_BINARY)
+        ret, binary = cv2.threshold(gray, 54, 255, cv2.THRESH_BINARY)
         se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
         # edges = cv2.Canny(binary, 50, 100)
@@ -116,6 +119,7 @@ if __name__ == '__main__':
         #     # print(vt, xx, yy, rr, len(circles))
         #     # cv2.waitKey(0)
         params = cv2.SimpleBlobDetector_Params()
+        # params.blobColor = 255
         detector = cv2.SimpleBlobDetector.create(params)
         kypts = detector.detect(binary)
         for kp in kypts:
@@ -126,10 +130,12 @@ if __name__ == '__main__':
             cir_c_x[i] = xx
             cir_c_y[i] = yy
             cir_r[i] = rr
-            cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
-            # cv2.imshow(cropwin, ki)
-            # print(vt, xx, yy, rr, len(circles))
-            # cv2.waitKey(0)
+            if rr > 15:
+                cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
+                cv2.imshow(cropwin, ki)
+                cv2.imshow(binwin, binary)
+                print(vt, xx, yy, rr)
+                cv2.waitKey(0)
         i += 1
 
         ret, img = capture.read()
@@ -137,7 +143,7 @@ if __name__ == '__main__':
             break
     print(nn, total_frame)
 
-    nzero = np.where(cir_r!=0)
+    nzero = np.where(cir_r != 0)
     cc_x_res = cir_c_x[nzero]
     cc_y_res = cir_c_y[nzero]
     cc_r_res = cir_r[nzero]
