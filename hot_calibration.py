@@ -33,27 +33,28 @@ class hot_calibration:
             kappa = self.kB * self.temperature / xvar
         return kappa
 
-    def gauss_distribution(self, x, kx, xeq=0):
+    def gauss_distribution(self, x, kx):
         rho = np.sqrt(kx / 2 / np.pi / self.kB / self.temperature) * np.exp(
-            -kx / 2 / self.kB / self.temperature * (x - xeq) ** 2)
+            -kx / 2 / self.kB / self.temperature * (x) ** 2)
         return rho
 
     def potential_analysis(self, xs, multi=False, showplot=False):
         xs = xs * self.img_pixel_size
         xmean = np.mean(xs)
-        xc = xs
+        xc = xs - xmean
         xmin = np.min(xc)
         xmax = np.max(xc)
         xc_hist, xc_bins = np.histogram(xc, bins=self.bin_count, density=True, range=(xmin, xmax))
         binw = np.diff(xc_bins)[0]
         x_coord = np.arange(xmin + binw / 2, xmax, binw)
-        # print(xc_hist.shape,x_coord.shape)
-        kx, xeq = curve_fit(self.gauss_distribution, xdata=x_coord, ydata=xc_hist, p0=(self.equipartition(xs),xmean))[0]
-        print(f'k={kx}, eq={xeq}')
+
+        kx, = curve_fit(self.gauss_distribution, xdata=x_coord, ydata=xc_hist, p0=(self.equipartition(xs)),
+                        bounds=(0, np.inf))[0]
+        print(f'k={kx}, eq={xmean}')
         if showplot:
             fig = plt.figure(figsize=(12, 9))
             ax1 = fig.add_subplot(111)  # type:axes.Axes
-            ax1.plot(x_coord, xc_hist, 'b.')
-            ax1.plot(x_coord, self.gauss_distribution(x_coord, kx, xeq), 'r')
+            ax1.hist(xc, bins=self.bin_count, density=True, color='b')
+            ax1.plot(x_coord, self.gauss_distribution(x_coord, kx), 'r')
             plt.show()
         return kx
