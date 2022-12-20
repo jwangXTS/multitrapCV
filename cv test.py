@@ -47,6 +47,7 @@ def mouse_draw_rect(event, x, y, flags, param):
             cv2.rectangle(icurr, (x1, y1), (x2, y2), (0, 0, 255), 2, 8, 0)
 
 
+
 if __name__ == '__main__':
     x1 = 0
     x2 = 0
