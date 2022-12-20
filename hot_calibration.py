@@ -52,9 +52,9 @@ class hot_calibration:
                         bounds=(0, np.inf))[0]
         print(f'k={kx}, eq={xmean}')
         if showplot:
-            fig = plt.figure(figsize=(12, 9)) #type:figure.Figure
+            fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
             ax1 = fig.add_subplot(111)  # type:axes.Axes
-            ax1.hist(xc, bins=self.bin_count, density=True, color='b')
+            ax1.hist(xc, bins=self.bin_count, density=True, color='C0')
             ax1.plot(x_coord, self.gauss_distribution(x_coord, kx), 'r')
             plt.show()
         return kx
