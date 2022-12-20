@@ -38,6 +38,10 @@ class hot_calibration:
             -kx / 2 / self.kB / self.temperature * (x) ** 2)
         return rho
 
+    def potential_linear_funct(self, x, a, b):
+        y = -a * x ** 2 + b
+        return y
+
     def potential_analysis(self, xs, multi=False, showplot=False):
         xs = xs * self.img_pixel_size
         xmean = np.mean(xs)
@@ -45,6 +49,7 @@ class hot_calibration:
         xmin = np.min(xc)
         xmax = np.max(xc)
         xc_hist, xc_bins = np.histogram(xc, bins=self.bin_count, density=True, range=(xmin, xmax))
+
         binw = np.diff(xc_bins)[0]
         x_coord = np.arange(xmin + binw / 2, xmax, binw)
 
@@ -58,3 +63,27 @@ class hot_calibration:
             ax1.plot(x_coord, self.gauss_distribution(x_coord, kx), 'r')
             plt.show()
         return kx
+
+    def potential_analysis_linear(self, xs, multi=False, showplot=False):
+        xs = xs * self.img_pixel_size
+        xmean = np.mean(xs)
+        xc = xs - xmean
+        xmin = np.min(xc)
+        xmax = np.max(xc)
+        xc_hist, xc_bins = np.histogram(xc, bins=self.bin_count, density=True, range=(xmin, xmax))
+        nzero = np.where(xc_hist != 0)
+        binw = np.diff(xc_bins)[0]
+        x_coord = np.arange(xmin + binw / 2, xmax, binw)
+        x_coord = x_coord[nzero]
+        ln_rho = np.log(xc_hist[nzero])
+        a, b = curve_fit(self.potential_linear_funct, xdata=x_coord, ydata=ln_rho, bounds=(0, np.inf))[0]
+        k1 = 2 * a * self.kB * self.temperature
+        k2 = 2 * np.pi * self.kB * self.temperature * np.exp(2 * b)
+        print(f'k from a: {k1}; k from b: {k2}')
+        if showplot:
+            fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
+            ax1 = fig.add_subplot(111)  # type:axes.Axes
+            ax1.hist(xc, bins=self.bin_count, density=True, color='C0')
+            ax1.plot(x_coord, self.gauss_distribution(x_coord, k1), 'r')
+            plt.show()
+        return k1

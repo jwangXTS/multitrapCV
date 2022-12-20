@@ -191,30 +191,83 @@ if __name__ == '__main__':
     cc2_y = np.zeros((len(crop), total_frame), dtype=float)
 
     t = np.zeros(total_frame, dtype=float)
+    l = len(crop)
 
     for frame in range(total_frame):
         t_frame = cap.get(cv2.CAP_PROP_POS_MSEC)
         t[frame] = t_frame
-        for i in range(len(crop)):
+        for i in range(l):
             img_cr = img[crop[i][2]:crop[i][3], crop[i][0]:crop[i][1]]
             # cc_x[i, frame], cc_y[i, frame] = blob_use_detector(img_cr, thresh)
             cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
         ret, img = cap.read()
 
     fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
-    ax1 = fig.add_subplot(221)
-    plt.plot(t, cc2_x[0, :])
-    ax1h = fig.add_subplot(222)
-    plt.hist(cc2_x[0, :], orientation='horizontal', bins=25, density=True)
-    ax2 = fig.add_subplot(223)
-    plt.plot(t, cc2_y[0, :])
-    ax2h = fig.add_subplot(224)
-    plt.hist(cc2_y[0, :], orientation='horizontal', bins=25, density=True)
-
-    plt.show()
+    # ax1 = fig.add_subplot(221)
+    # plt.plot(t, cc2_x[0, :])
+    # ax1h = fig.add_subplot(222)
+    # plt.hist(cc2_x[0, :], orientation='horizontal', bins=25, density=True)
+    # ax2 = fig.add_subplot(223)
+    # plt.plot(t, cc2_y[0, :])
+    # ax2h = fig.add_subplot(224)
+    # plt.hist(cc2_y[0, :], orientation='horizontal', bins=25, density=True)
+    #
+    # plt.show()
 
     cali = hot_calibration(magEx=True)
-    print(f'Equipartition: kx={cali.equipartition(cc2_x[0, :])}, ky={cali.equipartition(cc2_y[0, :])}')
-    pkx = cali.potential_analysis(cc2_x[0, :], showplot=True)
-    pky = cali.potential_analysis(cc2_y[0, :], showplot=True)
-    print(f'Potential analysis: kx={pkx}, ky={pky}')
+    cali_res = np.zeros((len(crop), 3, 2), dtype=float)
+    for i in range(l):
+        print(f'Particle {i + 1}:')
+        ekx = cali.equipartition(cc2_x[i, :])
+        eky = cali.equipartition(cc2_y[i, :])
+        print(f'Equipartition: kx={ekx}, ky={eky}')
+        pkx = cali.potential_analysis(cc2_x[i, :])
+        pky = cali.potential_analysis(cc2_y[i, :])
+        print(f'Potential analysis: kx={pkx}, ky={pky}')
+        pakx = cali.potential_analysis_linear(cc2_x[i, :])
+        paky = cali.potential_analysis_linear(cc2_y[i, :])
+        print(f'Potential analysis alternative: kx={pakx}, ky={paky}')
+        cali_res[i, ...] = np.array([[ekx, eky], [pkx, pky], [pakx, paky]])
+
+    if l == 2:
+        ax_prefix = 220
+        dn = [2, 0]
+        dxy = 1
+    elif l == 3:
+        ax_prefix = 320
+        dn = [2, 2, 0]
+        dxy = 1
+    elif l == 4:
+        ax_prefix = 240
+        dn = [1, 3, 1, 0]
+        dxy = 2
+    else:
+        ax_prefix = 120
+        dn = [0]
+        dxy = 1
+    fign = 1
+    for i in range(l):
+        xmean = np.mean(cc2_x[i, :])
+        xc = (cc2_x[i, :] - xmean) * cali.img_pixel_size
+        ax = fig.add_subplot(ax_prefix + fign)  # type:axes.Axes
+        xmin, xmax = np.min(xc), np.max(xc)
+        dx = (xmax - xmin) / cali.bin_count
+        x_coords = np.arange(xmin + dx / 2, xmax, dx)
+        ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 0, 0]), 'g', label='Equipartition')
+        ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 1, 0]), 'r', label='Potential Analysis')
+        ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 2, 0]), 'm', label='Potential Analysis alter.')
+        ax.hist(xc, bins=cali.bin_count, color='C0', density=True, label='X position distribution')
+        ax.legend(loc='upper right', title=f'kx of particle {i}')
+        ax = fig.add_subplot(ax_prefix + fign + dxy)
+        ymean = np.mean(cc2_y[i, :])
+        yc = (cc2_y[i, :] - ymean) * cali.img_pixel_size
+        ymin, ymax = np.min(yc), np.max(yc)
+        dy = (ymax - ymin) / cali.bin_count
+        y_coords = np.arange(ymin + dy / 2, ymax, dy)
+        ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 0, 1]), 'g', label='Equipartition')
+        ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 1, 1]), 'r', label='Potential Analysis')
+        ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 2, 1]), 'm', label='Potential Analysis alter.')
+        ax.hist(yc, bins=cali.bin_count, color='C1', density=True, label='y position distribution')
+        ax.legend(loc='upper right', title=f'ky of particle {i}')
+
+    plt.show()
