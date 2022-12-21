@@ -113,7 +113,7 @@ class hot_calibration:
         kpa2 = 2 * np.pi * self.kB * self.temperature * np.exp(2 * b)
         if showplot:
             fig = plt.figure(figsize=(12, 9))
-            gs = gridspec.GridSpec(2,1,height_ratios=[3,1])
+            gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
             ax = plt.subplot(gs[0])  # type:axes.Axes
             ax.hist(xc, bins=self.bin_count, density=True, color='C0', label='Positional distribution')
             ax.plot(x_coord, self.gauss_distribution(x_coord, keq), 'r', label='Equipartition')
@@ -125,7 +125,7 @@ class hot_calibration:
             ax.set_ylabel('Normalized Distribution')
             ax.set_title('Particle Position and Calibration Curves')
             ax = plt.subplot(gs[1])
-            ax.plot(t,xs,'C0')
+            ax.plot(t, xs, 'C0')
             ax.set_xlabel('Time [ms]')
             ax.set_ylabel('Centroid [um]')
             # ax.set_title('Particle Trajectory')
