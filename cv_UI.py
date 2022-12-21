@@ -270,4 +270,5 @@ if __name__ == '__main__':
         ax.hist(yc, bins=cali.bin_count, color='C1', density=True, label='y position distribution')
         ax.legend(loc='upper right', title=f'ky of particle {i}')
 
+
     plt.show()
