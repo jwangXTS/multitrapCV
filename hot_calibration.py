@@ -3,12 +3,14 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import matplotlib.axes._axes as axes
 import matplotlib.figure as figure
+from matplotlib import gridspec
 
 
 class hot_calibration:
     def __init__(self, temperature=296, unit='pN/um', mag=60, pixel=5.86, magEx=False, potential_bin_count=50):
         self.n = 0
         self.temperature = temperature
+        self.unitstr = unit
         if unit == 'pN/um':
             # k_Boltzmann = 1.380649 * 10^-5 pN um K^-1
             self.kB = 1.380649 * 10 ** -5
@@ -87,3 +89,41 @@ class hot_calibration:
             ax1.plot(x_coord, self.gauss_distribution(x_coord, k1), 'r')
             plt.show()
         return k1
+
+    def eq_pa(self, xs, t, showplot=False):
+        xs = xs * self.img_pixel_size
+        xmean = np.mean(xs)
+        xc = xs - xmean
+        xvar = np.var(xs)
+        keq = self.kB * self.temperature / xvar
+
+        xmin = np.min(xc)
+        xmax = np.max(xc)
+        xc_hist, xc_bins = np.histogram(xc, bins=self.bin_count, density=True, range=(xmin, xmax))
+
+        binw = np.diff(xc_bins)[0]
+        x_coord = np.arange(xmin + binw / 2, xmax, binw)
+        kp, = curve_fit(self.gauss_distribution, xdata=x_coord, ydata=xc_hist, p0=(keq),
+                        bounds=(0, np.inf))[0]
+
+        nzero = np.where(xc_hist != 0)
+
+        ln_rho = np.log(xc_hist[nzero])
+        a, b = curve_fit(self.potential_linear_funct, xdata=x_coord[nzero], ydata=ln_rho, bounds=(0, np.inf))[0]
+        kpa1 = 2 * a * self.kB * self.temperature
+        kpa2 = 2 * np.pi * self.kB * self.temperature * np.exp(2 * b)
+        if showplot:
+            fig = plt.figure(figsize=(12, 9))
+            gs = gridspec.GridSpec(2,1,height_ratios=[3,1])
+            ax = plt.subplot(gs[0])  # type:axes.Axes
+            ax.hist(xc, bins=self.bin_count, density=True, color='C0', label='Positional distribution')
+            ax.plot(x_coord, self.gauss_distribution(x_coord, keq), 'r', label='Equipartition')
+            ax.plot(x_coord, self.gauss_distribution(x_coord, kp), 'c', label='Potential Analysis')
+            ax.plot(x_coord, self.gauss_distribution(x_coord, kpa1), 'm', label='Potential Analysis alter. (a)')
+            ax.plot(x_coord, self.gauss_distribution(x_coord, kpa2), 'orchid', label='Potential Analysis alter. (b)')
+            ax.legend(loc='upper right')
+            ax = plt.subplot(gs[1])
+            ax.plot(t,xs,'C0')
+            plt.show()
+        print(f'k_eq={keq:.5} {self.unitstr}, k_p={kp:.5} {self.unitstr}, k_pa={kpa1:.5} / {kpa2:.5} {self.unitstr}.')
+        return keq, kp, kpa1, kpa2

@@ -28,13 +28,13 @@ if __name__ == "__main__":
     refwname = 'original'
     cv2.namedWindow(mwname, cv2.WINDOW_AUTOSIZE)
 
-    video_path = './F=27.55.avi'
+    video_path = './3075.avi'
 
     capture = cv2.VideoCapture(video_path)
     thresh = 0
     ret, img = capture.read()
     if ret:
-        cv2.imshow(refwname, img)
+        cv2.imshow(mwname, img)
         cv2.createTrackbar('Threshold', mwname, thresh, 255, thres_adj)
 
     cv2.waitKey(0)

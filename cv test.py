@@ -55,7 +55,7 @@ if __name__ == '__main__':
     y1 = 0
     y2 = 0
     crop = []
-    video_path = './F=27.55.avi'
+    video_path = './3075.avi'
     draw = False
 
     capture = cv2.VideoCapture(video_path)
@@ -102,9 +102,10 @@ if __name__ == '__main__':
         gray = cv2.cvtColor(ki, cv2.COLOR_BGR2GRAY)
         vt = capture.get(cv2.CAP_PROP_POS_MSEC)
         t[i] = vt
-        ret, binary = cv2.threshold(gray, 54, 255, cv2.THRESH_BINARY)
+        ret, binary = cv2.threshold(gray, 69, 255, cv2.THRESH_BINARY)
         se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
+        binary = cv2.bitwise_not(binary)
         # edges = cv2.Canny(binary, 50, 100)
         # circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 5, param1=100, param2=10, minRadius=8, maxRadius=8)
         # if circles is not None:
@@ -120,24 +121,28 @@ if __name__ == '__main__':
         #     # cv2.imshow(cropwin, ki)
         #     # print(vt, xx, yy, rr, len(circles))
         #     # cv2.waitKey(0)
-        params = cv2.SimpleBlobDetector_Params()
+        M = cv2.moments(binary)
+        # params = cv2.SimpleBlobDetector_Params()
         # params.blobColor = 255
-        detector = cv2.SimpleBlobDetector.create(params)
-        kypts = detector.detect(binary)
-        for kp in kypts:
-            nn += 1
-            xx = kp.pt[0]
-            yy = kp.pt[1]
-            rr = kp.size / 2
-            cir_c_x[i] = xx
-            cir_c_y[i] = yy
-            cir_r[i] = rr
-            if rr > 15:
-                cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
-                cv2.imshow(cropwin, ki)
-                cv2.imshow(binwin, binary)
-                print(vt, xx, yy, rr)
-                cv2.waitKey(0)
+        # detector = cv2.SimpleBlobDetector.create(params)
+        # kypts = detector.detect(binary)
+        # for kp in kypts:
+        #     nn += 1
+        #     xx = kp.pt[0]
+        #     yy = kp.pt[1]
+        #     rr = kp.size / 2
+        #     cir_c_x[i] = xx
+        #     cir_c_y[i] = yy
+        #     cir_r[i] = rr
+        #     if rr > 15:
+        #         cv2.circle(ki, (int(xx), int(yy)), int(rr), (0, 0, 255), 1, 10, 0)
+        #         cv2.imshow(cropwin, ki)
+        #         cv2.imshow(binwin, binary)
+        #         print(vt, xx, yy, rr)
+        #         cv2.waitKey(0)
+        nn += 1
+        cir_c_x[i] = M['m10'] / M['m00']
+        cir_c_y[i] = M['m01'] / M['m00']
         i += 1
 
         ret, img = capture.read()
@@ -145,40 +150,40 @@ if __name__ == '__main__':
             break
     print(nn, total_frame)
 
-    nzero = np.where(cir_r != 0)
-    cc_x_res = cir_c_x[nzero]
-    cc_y_res = cir_c_y[nzero]
-    cc_r_res = cir_r[nzero]
+    # nzero = np.where(cir_r == 0)
+    cc_x_res = cir_c_x[...]
+    cc_y_res = cir_c_y[...]
+    cc_r_res = cir_r[...]
     x_histo = np.histogram(cc_x_res, bins=50, range=(np.min(cc_x_res), np.max(cc_x_res)))
     cv2.destroyAllWindows()
     cc_x_mean = np.mean(cc_x_res)
     cc_y_mean = np.mean(cc_y_res)
     cc_r_mean = np.mean(cc_r_res)
-    tt = t[nzero]
+    tt = t[...]
     print(np.std(cc_r_res))
-    fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
-
-    ax1 = fig.add_subplot(321)  # type:axes.Axes
+    # fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
+    #
+    # ax1 = fig.add_subplot(321)  # type:axes.Axes
     # ax1.set_ylim(cc_x_mean * 0.9, cc_x_mean * 1.1)
-    plt.plot(tt, cc_x_res)
-    ax1h = fig.add_subplot(322)
-    plt.hist(cc_x_res, orientation='horizontal', bins=25, density=True)
-
-    ax2 = fig.add_subplot(323)
+    # plt.plot(tt, cc_x_res)
+    # ax1h = fig.add_subplot(322)
+    # plt.hist(cc_x_res, orientation='horizontal', bins=25, density=True)
+    #
+    # ax2 = fig.add_subplot(323)
     # ax2.set_ylim(cc_y_mean * 0.9, cc_y_mean * 1.1)
-    plt.plot(tt, cc_y_res)
-    ax2h = fig.add_subplot(324)
-    plt.hist(cc_y_res, orientation='horizontal', bins=25, density=True)
-    ax3 = fig.add_subplot(325)
+    # plt.plot(tt, cc_y_res)
+    # ax2h = fig.add_subplot(324)
+    # plt.hist(cc_y_res, orientation='horizontal', bins=25, density=True)
+    # ax3 = fig.add_subplot(325)
     # ax3.set_ylim(cc_r_mean * 0.85, cc_r_mean * 1.15)
-    plt.plot(tt, cc_r_res)
-    ax3h = fig.add_subplot(326)
-    plt.hist(cc_r_res, orientation='horizontal', bins=25, density=True)
-
-    plt.show()
+    # plt.plot(tt, cc_r_res)
+    # ax3h = fig.add_subplot(326)
+    # plt.hist(cc_r_res, orientation='horizontal', bins=25, density=True)
+    #
+    # plt.show()
 
     cali = hot_calibration(magEx=True)
-    print(f'Equipartition: kx={cali.equipartition(cc_x_res)}, ky={cali.equipartition(cc_y_res)}')
-    pkx = cali.potential_analysis(cc_x_res, showplot=True)
-    pky = cali.potential_analysis(cc_y_res, showplot=True)
-    print(f'Potential analysis: kx={pkx}, ky={pky}')
+    print('X:')
+    cali.eq_pa(cc_x_res, t, showplot=True)
+    print('Y:')
+    cali.eq_pa(cc_y_res, t, showplot=True)
