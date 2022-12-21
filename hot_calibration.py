@@ -107,7 +107,6 @@ class hot_calibration:
                         bounds=(0, np.inf))[0]
 
         nzero = np.where(xc_hist != 0)
-
         ln_rho = np.log(xc_hist[nzero])
         a, b = curve_fit(self.potential_linear_funct, xdata=x_coord[nzero], ydata=ln_rho, bounds=(0, np.inf))[0]
         kpa1 = 2 * a * self.kB * self.temperature
