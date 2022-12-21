@@ -55,7 +55,7 @@ if __name__ == '__main__':
     y1 = 0
     y2 = 0
     crop = []
-    video_path = './3075.avi'
+    video_path = './2047.avi'
     draw = False
 
     capture = cv2.VideoCapture(video_path)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         gray = cv2.cvtColor(ki, cv2.COLOR_BGR2GRAY)
         vt = capture.get(cv2.CAP_PROP_POS_MSEC)
         t[i] = vt
-        ret, binary = cv2.threshold(gray, 69, 255, cv2.THRESH_BINARY)
+        ret, binary = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
         se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
         binary = cv2.bitwise_not(binary)

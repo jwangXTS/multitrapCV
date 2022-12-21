@@ -28,13 +28,35 @@ if __name__ == "__main__":
     refwname = 'original'
     cv2.namedWindow(mwname, cv2.WINDOW_AUTOSIZE)
 
-    video_path = './3075.avi'
+    video_path = './2047.avi'
 
     capture = cv2.VideoCapture(video_path)
     thresh = 0
     ret, img = capture.read()
-    if ret:
-        cv2.imshow(mwname, img)
-        cv2.createTrackbar('Threshold', mwname, thresh, 255, thres_adj)
-
-    cv2.waitKey(0)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    k_pre, k_curr = -1, -1
+    while True:
+        # cv2.imshow(mwname, img)
+        # cv2.createTrackbar('Threshold', mwname, thresh, 255, thres_adj)
+        ret, binary = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)
+        se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, se)
+        cv2.putText(binary, f'{thresh}', (5, 30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), bottomLeftOrigin=False)
+        cv2.imshow(mwname, binary)
+        keypress = cv2.waitKey(0)
+        if keypress == 27:
+            break
+        if keypress > -1:
+            print(keypress)
+            k_curr = keypress
+        k_pre = keypress
+        if k_curr == 3 or k_curr == 100:
+            thresh += 1
+            if thresh > 255:
+                thresh = 255
+        elif k_curr == 2 or k_curr == 97:
+            thresh -= 1
+            if thresh < 0:
+                thresh = 0
+        k_curr = -1
+    # cv2.waitKey(0)
