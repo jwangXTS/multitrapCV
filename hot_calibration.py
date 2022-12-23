@@ -99,6 +99,12 @@ class hot_calibration:
 
         xmin = np.min(xc)
         xmax = np.max(xc)
+        if abs(xmin) > abs(xmax):
+            xmin = -xmax
+            # print('changed min:', xmin, xmax)
+        else:
+            xmax = - xmin
+            # print('changed max', xmin, xmax)
         xc_hist, xc_bins = np.histogram(xc, bins=self.bin_count, density=True, range=(xmin, xmax))
 
         binw = np.diff(xc_bins)[0]
@@ -115,7 +121,8 @@ class hot_calibration:
             fig = plt.figure(figsize=(12, 9))
             gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
             ax = plt.subplot(gs[0])  # type:axes.Axes
-            ax.hist(xc, bins=self.bin_count, density=True, color='C0', label='Positional distribution')
+            ax.hist(xc, bins=self.bin_count, density=True, color='C0', range=(xmin, xmax),
+                    label='Positional distribution')
             ax.plot(x_coord, self.gauss_distribution(x_coord, keq), 'r', label='Equipartition')
             ax.plot(x_coord, self.gauss_distribution(x_coord, kp), 'c', label='Potential Analysis')
             ax.plot(x_coord, self.gauss_distribution(x_coord, kpa1), 'm', label='Potential Analysis alter. (a)')
