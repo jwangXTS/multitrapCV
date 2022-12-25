@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.axes._axes as axes
 import matplotlib.figure as figure
 from hot_calibration import hot_calibration
+from numba import jit
 
 
 class cvVideo:
@@ -81,7 +82,7 @@ def thres_adj(nn):
     ret, binary1 = cv2.threshold(gray, nn, 255, cv2.THRESH_BINARY)
     se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
     binary = cv2.morphologyEx(binary1, cv2.MORPH_OPEN, se)
-    bin_color = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+    bin_color = cv2.cvtColor(binary1, cv2.COLOR_GRAY2BGR)
     for cr in crop:
         rx1 = cr[0]
         rx2 = cr[1]
@@ -126,6 +127,20 @@ def blob_use_moments(img_crop, thresh):
     binary = cv2.bitwise_not(binary)
     M = cv2.moments(binary)
     return M['m10'] / M['m00'], M['m01'] / M['m00']
+
+
+
+def ring_use_numpy(img_crop, thresh):
+    img_gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
+    ret, binary = cv2.threshold(img_gray, thresh, 255, cv2.THRESH_BINARY)
+    return ring_centroid(binary)
+
+@jit
+def ring_centroid(binary):
+    ring = np.where(binary != 0)
+    x = np.mean(ring[0])
+    y = np.mean(ring[1])
+    return x, y
 
 
 if __name__ == '__main__':
@@ -199,7 +214,8 @@ if __name__ == '__main__':
         for i in range(l):
             img_cr = img[crop[i][2]:crop[i][3], crop[i][0]:crop[i][1]]
             # cc_x[i, frame], cc_y[i, frame] = blob_use_detector(img_cr, thresh)
-            cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
+            # cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
+            cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
         ret, img = cap.read()
 
     # fig = plt.figure(figsize=(12, 9))  # type:figure.Figure

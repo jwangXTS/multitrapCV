@@ -40,8 +40,17 @@ class hot_calibration:
             -kx / 2 / self.kB / self.temperature * (x) ** 2)
         return rho
 
+    def gauss_distribution_offset(self, x, kx, xeq):
+        rho = np.sqrt(kx / 2 / np.pi / self.kB / self.temperature) * np.exp(
+            -kx / 2 / self.kB / self.temperature * (x - xeq) ** 2)
+        return rho
+
     def potential_linear_funct(self, x, a, b):
         y = -a * x ** 2 + b
+        return y
+
+    def potential_linear_funct_offset(self, x, a, b, xeq):
+        y = -a * (x - xeq) ** 2 + b
         return y
 
     def potential_analysis(self, xs, multi=False, showplot=False):
@@ -109,12 +118,13 @@ class hot_calibration:
 
         binw = np.diff(xc_bins)[0]
         x_coord = np.arange(xmin + binw / 2, xmax, binw)
-        kp, = curve_fit(self.gauss_distribution, xdata=x_coord, ydata=xc_hist, p0=(keq),
-                        bounds=(0, np.inf))[0]
+        kp, xeq = curve_fit(self.gauss_distribution_offset, xdata=x_coord, ydata=xc_hist, p0=(keq, 0),
+                            bounds=(0, np.inf))[0]
 
         nzero = np.where(xc_hist != 0)
         ln_rho = np.log(xc_hist[nzero])
-        a, b = curve_fit(self.potential_linear_funct, xdata=x_coord[nzero], ydata=ln_rho, bounds=(0, np.inf))[0]
+        a, b, xeqpa = \
+            curve_fit(self.potential_linear_funct_offset, xdata=x_coord[nzero], ydata=ln_rho, bounds=(0, np.inf))[0]
         kpa1 = 2 * a * self.kB * self.temperature
         kpa2 = 2 * np.pi * self.kB * self.temperature * np.exp(2 * b)
         if showplot:
@@ -124,9 +134,11 @@ class hot_calibration:
             ax.hist(xc, bins=self.bin_count, density=True, color='C0', range=(xmin, xmax),
                     label='Positional distribution')
             ax.plot(x_coord, self.gauss_distribution(x_coord, keq), 'r', label='Equipartition')
-            ax.plot(x_coord, self.gauss_distribution(x_coord, kp), 'c', label='Potential Analysis')
-            ax.plot(x_coord, self.gauss_distribution(x_coord, kpa1), 'm', label='Potential Analysis alter. (a)')
-            ax.plot(x_coord, self.gauss_distribution(x_coord, kpa2), 'orchid', label='Potential Analysis alter. (b)')
+            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kp, xeq), 'c', label='Potential Analysis')
+            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa1, xeqpa), 'm',
+                    label='Potential Analysis alter. (a)')
+            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa2, xeqpa), 'orchid',
+                    label='Potential Analysis alter. (b)')
             ax.legend(loc='upper right')
             ax.set_xlabel('Displacement [um]')
             ax.set_ylabel('Normalized Distribution')
