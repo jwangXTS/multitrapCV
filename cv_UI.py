@@ -7,6 +7,8 @@ import matplotlib.axes._axes as axes
 import matplotlib.figure as figure
 from hot_calibration import hot_calibration
 from numba import jit
+import csv
+from datetime import datetime
 
 
 class cvVideo:
@@ -129,11 +131,11 @@ def blob_use_moments(img_crop, thresh):
     return M['m10'] / M['m00'], M['m01'] / M['m00']
 
 
-
 def ring_use_numpy(img_crop, thresh):
     img_gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
     ret, binary = cv2.threshold(img_gray, thresh, 255, cv2.THRESH_BINARY)
     return ring_centroid(binary)
+
 
 @jit
 def ring_centroid(binary):
@@ -217,37 +219,26 @@ if __name__ == '__main__':
             # cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
             cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
         ret, img = cap.read()
+    print('Video analysis finished.')
+    csvname = filename + datetime.now().strftime('%Y%m%d_%H%M%S') + '.csv'
 
-    # fig = plt.figure(figsize=(12, 9))  # type:figure.Figure
-    # ax1 = fig.add_subplot(221)
-    # plt.plot(t, cc2_x[0, :])
-    # ax1h = fig.add_subplot(222)
-    # plt.hist(cc2_x[0, :], orientation='horizontal', bins=25, density=True)
-    # ax2 = fig.add_subplot(223)
-    # plt.plot(t, cc2_y[0, :])
-    # ax2h = fig.add_subplot(224)
-    # plt.hist(cc2_y[0, :], orientation='horizontal', bins=25, density=True)
-    #
-    # plt.show()
-
-    cali = hot_calibration(magEx=True)
-    cali_res = np.zeros((len(crop), 3, 2), dtype=float)
-    for i in range(l):
-        print(f'Particle {i + 1}:')
-        # ekx = cali.equipartition(cc2_x[i, :])
-        # eky = cali.equipartition(cc2_y[i, :])
-        # print(f'Equipartition: kx={ekx}, ky={eky}')
-        # pkx = cali.potential_analysis(cc2_x[i, :])
-        # pky = cali.potential_analysis(cc2_y[i, :])
-        # print(f'Potential analysis: kx={pkx}, ky={pky}')
-        # pakx = cali.potential_analysis_linear(cc2_x[i, :])
-        # paky = cali.potential_analysis_linear(cc2_y[i, :])
-        # print(f'Potential analysis alternative: kx={pakx}, ky={paky}')
-        # cali_res[i, ...] = np.array([[ekx, eky], [pkx, pky], [pakx, paky]])
-        print('X:')
-        cali.eq_pa(cc2_x[i, :], t, showplot=True)
-        print('Y:')
-        cali.eq_pa(cc2_y[i, :], t, showplot=True)
+    with open(csvname, 'w', newline='') as f:
+        csvwriter = csv.writer(f)
+        header = ['particle', 'k_x^EQ', 'k_x^P', 'Err:k_x^P', 'x_eq^P', 'Err:x_eq^P', 'R^2_xP', 'k_x^PA1',
+                  'Err:k_x^PA1', 'k_x^PA2', 'Err:k_x^PA2', 'x_eq^PA', 'Err:x_eq^PA', 'R^2_xPA', 'k_y^EQ', 'k_y^P',
+                  'Err:k_y^P', 'y_eq^P', 'Err:y_eq^P', 'R^2_yP', 'k_y^PA1', 'Err:k_y^PA1', 'k_y^PA2', 'Err:k_y^PA2',
+                  'y_eq^PA', 'Err:y_eq^PA', 'R^2_yPA']
+        csvwriter.writerow(header)
+        cali = hot_calibration(magEx=True)
+        cali_res = np.zeros((len(crop), 3, 2), dtype=float)
+        for i in range(l):
+            print(f'Particle {i + 1}:')
+            print('X:')
+            k_x = cali.eq_pa(cc2_x[i, :], t, showplot=True)
+            print('Y:')
+            k_y = cali.eq_pa(cc2_y[i, :], t, showplot=True)
+            tl = [[i + 1], k_x, k_y]
+            csvwriter.writerow([item for t in tl for item in t])
 
     # if l == 2:
     #     ax_prefix = 220

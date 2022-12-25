@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.axes._axes as axes
 import matplotlib.figure as figure
 from matplotlib import gridspec
+import uncertainties as u
+import uncertainties.umath as umath
 
 
 class hot_calibration:
@@ -14,9 +16,11 @@ class hot_calibration:
         if unit == 'pN/um':
             # k_Boltzmann = 1.380649 * 10^-5 pN um K^-1
             self.kB = 1.380649 * 10 ** -5
+            self.len_unit_str = 'um'
         else:
             # k_Boltzmann = 1.380649 * 10^-23 J K^-1
             self.kB = 1.380649 * 10 ** -23
+            self.len_unit_str = 'm'
         self.img_pixel_size = pixel / mag
         self.img_pixel_size = self.img_pixel_size / 1.5 if magEx else self.img_pixel_size
         self.bin_count = potential_bin_count
@@ -118,15 +122,42 @@ class hot_calibration:
 
         binw = np.diff(xc_bins)[0]
         x_coord = np.arange(xmin + binw / 2, xmax, binw)
-        kp, xeq = curve_fit(self.gauss_distribution_offset, xdata=x_coord, ydata=xc_hist, p0=(keq, 0),
-                            bounds=(0, np.inf))[0]
+        popt, pcov, infodict, mesg, ier = curve_fit(self.gauss_distribution_offset, xdata=x_coord, ydata=xc_hist,
+                                                    p0=(keq, 0),
+                                                    bounds=(0, np.inf), full_output=True)
+        kp = popt[0]
+        xeq = popt[1]
+        perr = np.sqrt(np.diag(pcov))
+        kp_err = perr[0]
+        xeq_err = perr[1]
+        ss_err = (infodict['fvec'] ** 2).sum()
+        ss_tot = ((xc_hist - xc_hist.mean()) ** 2).sum()
+        p_rsqr = 1 - (ss_err / ss_tot)
 
         nzero = np.where(xc_hist != 0)
         ln_rho = np.log(xc_hist[nzero])
-        a, b, xeqpa = \
-            curve_fit(self.potential_linear_funct_offset, xdata=x_coord[nzero], ydata=ln_rho, bounds=(0, np.inf))[0]
-        kpa1 = 2 * a * self.kB * self.temperature
-        kpa2 = 2 * np.pi * self.kB * self.temperature * np.exp(2 * b)
+        popt, pcov, infodict, mesg, ier = curve_fit(self.potential_linear_funct_offset, xdata=x_coord[nzero],
+                                                    ydata=ln_rho,
+                                                    bounds=(0, np.inf), full_output=True)
+        a = popt[0]
+        b = popt[1]
+        xeqpa = popt[2]
+        perr = np.sqrt(np.diag(pcov))
+        a_err = perr[0]
+        b_err = perr[1]
+        xeqpa_err = perr[2]
+        a_u = u.ufloat(a, a_err)
+        b_u = u.ufloat(b, b_err)
+        kpa1_u = 2 * a_u * self.kB * self.temperature
+        kpa2_u = 2 * np.pi * self.kB * self.temperature * umath.exp(2 * b_u)
+        kpa1 = kpa1_u.nominal_value
+        kpa2 = kpa2_u.nominal_value
+        kpa1_err = kpa1_u.std_dev
+        kpa2_err = kpa2_u.std_dev
+        ss_err = (infodict['fvec'] ** 2).sum()
+        ss_tot = ((xc_hist[nzero] - xc_hist[nzero].mean()) ** 2).sum()
+        pa_rsqr = 1 - (ss_err / ss_tot)
+
         if showplot:
             fig = plt.figure(figsize=(12, 9))
             gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
@@ -149,5 +180,9 @@ class hot_calibration:
             ax.set_ylabel('Centroid [um]')
             # ax.set_title('Particle Trajectory')
             plt.show()
-        print(f'k_eq={keq:.5} {self.unitstr}, k_p={kp:.5} {self.unitstr}, k_pa={kpa1:.5} / {kpa2:.5} {self.unitstr}.')
-        return keq, kp, kpa1, kpa2
+        print(f'k_eq = {keq:.5} {self.unitstr};')
+        print(f'k_p = {kp:.5} ± {kp_err:.5} {self.unitstr}, x_eq = {xeq:.5} ± {xeq_err:.5} {self.len_unit_str}, ',
+              f'fit R^2={p_rsqr:.5};')
+        print(f'k_pa = {kpa1:.5} ± {kpa1_err:.5} / {kpa2:.5} ± {kpa2_err:.5} {self.unitstr}',
+              f'xeq = {xeqpa:.5} ± {xeqpa_err:.5} {self.len_unit_str}, fit R^2={pa_rsqr:.5}.')
+        return keq, kp, kp_err, xeq, xeq_err, p_rsqr, kpa1, kpa1_err, kpa2, kpa2_err, xeqpa, xeqpa_err, pa_rsqr
