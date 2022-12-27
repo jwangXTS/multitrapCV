@@ -220,7 +220,7 @@ if __name__ == '__main__':
             cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
         ret, img = cap.read()
     print('Video analysis finished.')
-    csvname = filename + datetime.now().strftime('_%Y%m%d_%H%M%S') + '.csv'
+    csvname = filename + datetime.now().strftime('_%Y%m%d_%H%M%S') + ('thresh=%d.csv' % thresh)
 
     with open(csvname, 'w', newline='') as f:
         csvwriter = csv.writer(f)

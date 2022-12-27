@@ -29,7 +29,7 @@ while True:
     if not ret:
         break
     t = cap.get(cv2.CAP_PROP_POS_MSEC)
-    if 3810 < t < 3900 or 14510 < t < 14590 or 28170 < t < 28270:
+    if 14320<t<14420:
         pass
     else:
         out.write(frame)
