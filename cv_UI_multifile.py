@@ -1,5 +1,5 @@
 import cv2
-import win32ui
+import win32ui, win32gui, win32con
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +9,9 @@ from hot_calibration import hot_calibration
 from numba import jit
 import csv
 from datetime import datetime
+import pywintypes
+import os
+from time import time
 
 
 class cvVideo:
@@ -145,6 +148,78 @@ def ring_centroid(binary):
     return x, y
 
 
+def multifile_process(filenames, crop, thresh, showplot=False, magEx=False, usefunc=2):
+    st = time()
+    l = len(crop)
+    res_x = []
+    res_y = []
+    for i in range(l):
+        res_x.append([])
+        res_y.append([])
+    for filename in filenames:
+        print(filename)
+        cap = cv2.VideoCapture(filename)
+        total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        print(f'Video has {total_frame} frames.')
+        cc2_x = np.zeros((l, total_frame), dtype=float)
+        cc2_y = np.zeros((l, total_frame), dtype=float)
+
+        t = np.zeros(total_frame, dtype=float)
+
+        for frame in range(total_frame):
+            ret, img = cap.read()
+            t_frame = cap.get(cv2.CAP_PROP_POS_MSEC)
+            t[frame] = t_frame
+            for i in range(l):
+                img_cr = img[crop[i][2]:crop[i][3], crop[i][0]:crop[i][1]]
+                if usefunc == 0:
+                    cc2_x[i, frame], cc2_y[i, frame] = blob_use_detector(img_cr, thresh)
+                elif usefunc == 1:
+                    cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
+                else:
+                    cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
+
+        # print('Video analysis finished.')
+        csvname = filename + datetime.now().strftime('_%Y%m%d_%H%M%S') + ('_thresh=%d.csv' % thresh)
+
+        with open(csvname, 'w', newline='') as f:
+            csvwriter = csv.writer(f)
+            header = ['particle', 'k_x^EQ', 'k_x^P', 'Err:k_x^P', 'x_eq^P', 'Err:x_eq^P', 'R^2_xP', 'k_x^PA1',
+                      'Err:k_x^PA1', 'k_x^PA2', 'Err:k_x^PA2', 'x_eq^PA', 'Err:x_eq^PA', 'R^2_xPA', 'k_y^EQ', 'k_y^P',
+                      'Err:k_y^P', 'y_eq^P', 'Err:y_eq^P', 'R^2_yP', 'k_y^PA1', 'Err:k_y^PA1', 'k_y^PA2', 'Err:k_y^PA2',
+                      'y_eq^PA', 'Err:y_eq^PA', 'R^2_yPA']
+            csvwriter.writerow(header)
+            cali = hot_calibration(magEx=magEx)
+            for i in range(l):
+                print(f'Particle {i + 1}:')
+                print('X:')
+                k_x = cali.eq_pa(cc2_x[i, :], t, showplot=showplot)
+                res_x[i].append(k_x)
+                print('Y:')
+                k_y = cali.eq_pa(cc2_y[i, :], t, showplot=showplot)
+                res_y[i].append(k_y)
+                tl = [[i + 1], k_x, k_y]
+                csvwriter.writerow([item for t in tl for item in t])
+
+    for i in range(l):
+        csvname = filenames[0] + ('_P=%d' % (i + 1)) + datetime.now().strftime('_%Y%m%d_%H%M%S') + (
+                '_trh=%d.csv' % thresh)
+        with open(csvname, 'w', newline='') as f:
+            csvwriter = csv.writer(f)
+            header = ['File', 'k_x^EQ', 'k_x^P', 'Err:k_x^P', 'x_eq^P', 'Err:x_eq^P', 'R^2_xP', 'k_x^PA1',
+                      'Err:k_x^PA1', 'k_x^PA2', 'Err:k_x^PA2', 'x_eq^PA', 'Err:x_eq^PA', 'R^2_xPA', 'k_y^EQ', 'k_y^P',
+                      'Err:k_y^P', 'y_eq^P', 'Err:y_eq^P', 'R^2_yP', 'k_y^PA1', 'Err:k_y^PA1', 'k_y^PA2', 'Err:k_y^PA2',
+                      'y_eq^PA', 'Err:y_eq^PA', 'R^2_yPA']
+            csvwriter.writerow(header)
+            for j in range(len(filenames)):
+                fnameshort = os.path.splitext(os.path.basename(filenames[j]))[0]
+                tl = [res_x[i][j], res_y[i][j]]
+                ll = [item for t in tl for item in t]
+                ll.insert(0, fnameshort)
+                csvwriter.writerow(ll)
+    print('All finished. Processed %d files in %.2f secs.' % (len(filenames), time() - st))
+
+
 if __name__ == '__main__':
     x1 = 0
     x2 = 0
@@ -153,20 +228,30 @@ if __name__ == '__main__':
     draw = False
     crop_win = 'Crop Selection'
 
-    dlg = win32ui.CreateFileDialog(True)
-
-    dlg.SetOFNInitialDir('./')
-
-    dlg.DoModal()
-
-    filename = dlg.GetPathName()
-    if filename == '':
-        print('No File is Selected')
+    try:
+        ret = win32gui.GetOpenFileNameW(None,
+                                        Flags=win32con.OFN_ALLOWMULTISELECT | win32con.OFN_FILEMUSTEXIST | win32con.OFN_HIDEREADONLY | win32con.OFN_EXPLORER,
+                                        Title='Select File(s)')
+    except pywintypes.error as e:
+        if e.winerror == 0:
+            print('Cancelled')
+        else:
+            print('Misc errors')
         sys.exit(0)
 
-    cap = cv2.VideoCapture(filename)
+    fsplit = ret[0].split('\x00')
+
+    if len(fsplit) == 1:
+        filenames = fsplit
+    else:
+        filenames = []
+        dirname = fsplit[0]
+        for filename in fsplit[1:]:
+            filenames.append(os.path.join(dirname, filename))
+
+    cap = cv2.VideoCapture(filenames[0])
     total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(f'Video has {total_frame} frames.')
+    # print(f'Video has {total_frame} frames.')
     crop = []
     ret, img = cap.read()
     iall = []
@@ -191,95 +276,17 @@ if __name__ == '__main__':
             cur_c = -1
     # print(filename)
     cv2.destroyWindow(crop_win)
-    thres_win = 'Threshhold Selection'
+    thres_win = 'Threshold Selection'
     cv2.namedWindow(thres_win, cv2.WINDOW_AUTOSIZE)
     cv2.imshow(thres_win, img)
     thresh = 0
     cv2.createTrackbar('Threshold', thres_win, 0, 255, thres_adj)
     cv2.waitKey(0)
-    print('Calculating...')
+    # print('Calculating...')
     for cr in crop:
         if cr[0] > cr[1]:
             cr[0], cr[1] = cr[1], cr[0]
         if cr[2] > cr[3]:
             cr[2], cr[3] = cr[3], cr[2]
-    # cc_x = np.zeros((len(crop), total_frame), dtype=float)
-    # cc_y = np.zeros((len(crop), total_frame), dtype=float)
-    cc2_x = np.zeros((len(crop), total_frame), dtype=float)
-    cc2_y = np.zeros((len(crop), total_frame), dtype=float)
 
-    t = np.zeros(total_frame, dtype=float)
-    l = len(crop)
-
-    for frame in range(total_frame):
-        t_frame = cap.get(cv2.CAP_PROP_POS_MSEC)
-        t[frame] = t_frame
-        for i in range(l):
-            img_cr = img[crop[i][2]:crop[i][3], crop[i][0]:crop[i][1]]
-            # cc_x[i, frame], cc_y[i, frame] = blob_use_detector(img_cr, thresh)
-            # cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
-            cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
-        ret, img = cap.read()
-    print('Video analysis finished.')
-    csvname = filename + datetime.now().strftime('_%Y%m%d_%H%M%S') + ('thresh=%d.csv' % thresh)
-
-    with open(csvname, 'w', newline='') as f:
-        csvwriter = csv.writer(f)
-        header = ['particle', 'k_x^EQ', 'k_x^P', 'Err:k_x^P', 'x_eq^P', 'Err:x_eq^P', 'R^2_xP', 'k_x^PA1',
-                  'Err:k_x^PA1', 'k_x^PA2', 'Err:k_x^PA2', 'x_eq^PA', 'Err:x_eq^PA', 'R^2_xPA', 'k_y^EQ', 'k_y^P',
-                  'Err:k_y^P', 'y_eq^P', 'Err:y_eq^P', 'R^2_yP', 'k_y^PA1', 'Err:k_y^PA1', 'k_y^PA2', 'Err:k_y^PA2',
-                  'y_eq^PA', 'Err:y_eq^PA', 'R^2_yPA']
-        csvwriter.writerow(header)
-        cali = hot_calibration(magEx=True)
-        cali_res = np.zeros((len(crop), 3, 2), dtype=float)
-        for i in range(l):
-            print(f'Particle {i + 1}:')
-            print('X:')
-            k_x = cali.eq_pa(cc2_x[i, :], t, showplot=True)
-            print('Y:')
-            k_y = cali.eq_pa(cc2_y[i, :], t, showplot=True)
-            tl = [[i + 1], k_x, k_y]
-            csvwriter.writerow([item for t in tl for item in t])
-
-    # if l == 2:
-    #     ax_prefix = 220
-    #     dn = [2, 0]
-    #     dxy = 1
-    # elif l == 3:
-    #     ax_prefix = 320
-    #     dn = [2, 2, 0]
-    #     dxy = 1
-    # elif l == 4:
-    #     ax_prefix = 240
-    #     dn = [1, 3, 1, 0]
-    #     dxy = 2
-    # else:
-    #     ax_prefix = 120
-    #     dn = [0]
-    #     dxy = 1
-    # fign = 1
-    # for i in range(l):
-    #     xmean = np.mean(cc2_x[i, :])
-    #     xc = (cc2_x[i, :] - xmean) * cali.img_pixel_size
-    #     ax = fig.add_subplot(ax_prefix + fign)  # type:axes.Axes
-    #     xmin, xmax = np.min(xc), np.max(xc)
-    #     dx = (xmax - xmin) / cali.bin_count
-    #     x_coords = np.arange(xmin + dx / 2, xmax, dx)
-    #     ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 0, 0]), 'g', label='Equipartition')
-    #     ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 1, 0]), 'r', label='Potential Analysis')
-    #     ax.plot(x_coords, cali.gauss_distribution(x_coords, cali_res[i, 2, 0]), 'm', label='Potential Analysis alter.')
-    #     ax.hist(xc, bins=cali.bin_count, color='C0', density=True, label='X position distribution')
-    #     ax.legend(loc='upper right', title=f'kx of particle {i}')
-    #     ax = fig.add_subplot(ax_prefix + fign + dxy)
-    #     ymean = np.mean(cc2_y[i, :])
-    #     yc = (cc2_y[i, :] - ymean) * cali.img_pixel_size
-    #     ymin, ymax = np.min(yc), np.max(yc)
-    #     dy = (ymax - ymin) / cali.bin_count
-    #     y_coords = np.arange(ymin + dy / 2, ymax, dy)
-    #     ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 0, 1]), 'g', label='Equipartition')
-    #     ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 1, 1]), 'r', label='Potential Analysis')
-    #     ax.plot(y_coords, cali.gauss_distribution(y_coords, cali_res[i, 2, 1]), 'm', label='Potential Analysis alter.')
-    #     ax.hist(yc, bins=cali.bin_count, color='C1', density=True, label='y position distribution')
-    #     ax.legend(loc='upper right', title=f'ky of particle {i}')
-
-    # plt.show()
+    multifile_process(filenames, crop, thresh)

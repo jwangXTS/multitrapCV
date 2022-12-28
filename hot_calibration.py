@@ -122,41 +122,63 @@ class hot_calibration:
 
         binw = np.diff(xc_bins)[0]
         x_coord = np.arange(xmin + binw / 2, xmax, binw)
-        popt, pcov, infodict, mesg, ier = curve_fit(self.gauss_distribution_offset, xdata=x_coord, ydata=xc_hist,
-                                                    p0=(keq, 0),
-                                                    bounds=(0, np.inf), full_output=True)
-        kp = popt[0]
-        xeq = popt[1]
-        perr = np.sqrt(np.diag(pcov))
-        kp_err = perr[0]
-        xeq_err = perr[1]
-        ss_err = (infodict['fvec'] ** 2).sum()
-        ss_tot = ((xc_hist - xc_hist.mean()) ** 2).sum()
-        p_rsqr = 1 - (ss_err / ss_tot)
+        try:
+            popt, pcov, infodict, mesg, ier = curve_fit(self.gauss_distribution_offset, xdata=x_coord, ydata=xc_hist,
+                                                        p0=(keq, 0),
+                                                        bounds=(0, np.inf), full_output=True)
+            kp = popt[0]
+            xeq = popt[1]
+            perr = np.sqrt(np.diag(pcov))
+            kp_err = perr[0]
+            xeq_err = perr[1]
+            ss_err = (infodict['fvec'] ** 2).sum()
+            ss_tot = ((xc_hist - xc_hist.mean()) ** 2).sum()
+            p_rsqr = 1 - (ss_err / ss_tot)
+            fit_p_success = True
+        except:
+            kp = 0
+            xeq = 0
+            kp_err = 0
+            xeq_err = 0
+            p_rsqr = 0
+            print('Potential Analysis fit to Gaussian Distribution: Failed.')
+            fit_p_success = False
 
         nzero = np.where(xc_hist != 0)
         ln_rho = np.log(xc_hist[nzero])
-        popt, pcov, infodict, mesg, ier = curve_fit(self.potential_linear_funct_offset, xdata=x_coord[nzero],
-                                                    ydata=ln_rho,
-                                                    bounds=(0, np.inf), full_output=True)
-        a = popt[0]
-        b = popt[1]
-        xeqpa = popt[2]
-        perr = np.sqrt(np.diag(pcov))
-        a_err = perr[0]
-        b_err = perr[1]
-        xeqpa_err = perr[2]
-        a_u = u.ufloat(a, a_err)
-        b_u = u.ufloat(b, b_err)
-        kpa1_u = 2 * a_u * self.kB * self.temperature
-        kpa2_u = 2 * np.pi * self.kB * self.temperature * umath.exp(2 * b_u)
-        kpa1 = kpa1_u.nominal_value
-        kpa2 = kpa2_u.nominal_value
-        kpa1_err = kpa1_u.std_dev
-        kpa2_err = kpa2_u.std_dev
-        ss_err = (infodict['fvec'] ** 2).sum()
-        ss_tot = ((xc_hist[nzero] - xc_hist[nzero].mean()) ** 2).sum()
-        pa_rsqr = 1 - (ss_err / ss_tot)
+        try:
+            popt, pcov, infodict, mesg, ier = curve_fit(self.potential_linear_funct_offset, xdata=x_coord[nzero],
+                                                        ydata=ln_rho,
+                                                        bounds=(0, np.inf), full_output=True)
+            a = popt[0]
+            b = popt[1]
+            xeqpa = popt[2]
+            perr = np.sqrt(np.diag(pcov))
+            a_err = perr[0]
+            b_err = perr[1]
+            xeqpa_err = perr[2]
+            a_u = u.ufloat(a, a_err)
+            b_u = u.ufloat(b, b_err)
+            kpa1_u = 2 * a_u * self.kB * self.temperature
+            kpa2_u = 2 * np.pi * self.kB * self.temperature * umath.exp(2 * b_u)
+            kpa1 = kpa1_u.nominal_value
+            kpa2 = kpa2_u.nominal_value
+            kpa1_err = kpa1_u.std_dev
+            kpa2_err = kpa2_u.std_dev
+            ss_err = (infodict['fvec'] ** 2).sum()
+            ss_tot = ((xc_hist[nzero] - xc_hist[nzero].mean()) ** 2).sum()
+            pa_rsqr = 1 - (ss_err / ss_tot)
+            fit_pa_success = True
+        except:
+            fit_pa_success = False
+            kpa1 = 0
+            kpa2 = 0
+            kpa2_err = 0
+            kpa1_err = 0
+            xeqpa = 0
+            xeqpa_err = 0
+            pa_rsqr = 0
+            print('Potential Analysis fit to polynomial Gaussian Distribution: Failed.')
 
         if showplot:
             fig = plt.figure(figsize=(12, 9))
@@ -165,11 +187,13 @@ class hot_calibration:
             ax.hist(xc, bins=self.bin_count, density=True, color='C0', range=(xmin, xmax),
                     label='Positional distribution')
             ax.plot(x_coord, self.gauss_distribution(x_coord, keq), 'r', label='Equipartition')
-            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kp, xeq), 'c', label='Potential Analysis')
-            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa1, xeqpa), 'm',
-                    label='Potential Analysis alter. (a)')
-            ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa2, xeqpa), 'orchid',
-                    label='Potential Analysis alter. (b)')
+            if fit_p_success:
+                ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kp, xeq), 'c', label='Potential Analysis')
+            if fit_pa_success:
+                ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa1, xeqpa), 'm',
+                        label='Potential Analysis alter. (a)')
+                ax.plot(x_coord, self.gauss_distribution_offset(x_coord, kpa2, xeqpa), 'orchid',
+                        label='Potential Analysis alter. (b)')
             ax.legend(loc='upper right')
             ax.set_xlabel('Displacement [um]')
             ax.set_ylabel('Normalized Distribution')
