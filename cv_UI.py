@@ -157,15 +157,15 @@ if __name__ == '__main__':
 
     dlg.SetOFNInitialDir('./')
 
-    dlg.DoModal()
+    dlg.DoModal()#选视频
 
     filename = dlg.GetPathName()
     if filename == '':
         print('No File is Selected')
         sys.exit(0)
 
-    cap = cv2.VideoCapture(filename)
-    total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap = cv2.VideoCapture(filename)#获取视频
+    total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))#计算视频有多少帧
     print(f'Video has {total_frame} frames.')
     crop = []
     ret, img = cap.read()
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     ilast = np.copy(img)
     icurr = np.copy(img)
     cv2.namedWindow(crop_win, cv2.WINDOW_AUTOSIZE)
-    cv2.setMouseCallback(crop_win, mouse_draw_rect)
+    cv2.setMouseCallback(crop_win, mouse_draw_rect)#画矩形
     pre_c = -1
     cur_c = -1
     while True:

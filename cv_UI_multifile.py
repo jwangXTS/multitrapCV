@@ -81,12 +81,14 @@ def remove_click():
 
 
 def thres_adj(nn):
-    global thresh
+    global thresh, inverted
     thresh = nn
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret, binary1 = cv2.threshold(gray, nn, 255, cv2.THRESH_BINARY)
-    se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
-    binary = cv2.morphologyEx(binary1, cv2.MORPH_OPEN, se)
+    if inverted:
+        binary1 = cv2.bitwise_not(binary1)
+    # se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+    # binary = cv2.morphologyEx(binary1, cv2.MORPH_OPEN, se)
     bin_color = cv2.cvtColor(binary1, cv2.COLOR_GRAY2BGR)
     for cr in crop:
         rx1 = cr[0]
@@ -134,9 +136,11 @@ def blob_use_moments(img_crop, thresh):
     return M['m10'] / M['m00'], M['m01'] / M['m00']
 
 
-def ring_use_numpy(img_crop, thresh):
+def ring_use_numpy(img_crop, thresh, inverted=False):
     img_gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
     ret, binary = cv2.threshold(img_gray, thresh, 255, cv2.THRESH_BINARY)
+    if inverted:
+        binary = cv2.bitwise_not(binary)
     return ring_centroid(binary)
 
 
@@ -148,7 +152,8 @@ def ring_centroid(binary):
     return x, y
 
 
-def multifile_process(filenames, crop, thresh, showplot=False, magEx=False, usefunc=2):
+def multifile_process(filenames, crop, thresh, showplot=False, magEx=False, usefunc=2, inverted=False, pixel=5.86,
+                      mag=60):
     st = time()
     l = len(crop)
     res_x = []
@@ -177,7 +182,7 @@ def multifile_process(filenames, crop, thresh, showplot=False, magEx=False, usef
                 elif usefunc == 1:
                     cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
                 else:
-                    cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
+                    cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh, inverted=inverted)
 
         # print('Video analysis finished.')
         csvname = filename + datetime.now().strftime('_%Y%m%d_%H%M%S') + ('_thresh=%d.csv' % thresh)
@@ -189,7 +194,7 @@ def multifile_process(filenames, crop, thresh, showplot=False, magEx=False, usef
                       'Err:k_y^P', 'y_eq^P', 'Err:y_eq^P', 'R^2_yP', 'k_y^PA1', 'Err:k_y^PA1', 'k_y^PA2', 'Err:k_y^PA2',
                       'y_eq^PA', 'Err:y_eq^PA', 'R^2_yPA']
             csvwriter.writerow(header)
-            cali = hot_calibration(magEx=magEx)
+            cali = hot_calibration(magEx=magEx, mag=mag, pixel=pixel)
             for i in range(l):
                 print(f'Particle {i + 1}:')
                 print('X:')
@@ -227,6 +232,7 @@ if __name__ == '__main__':
     y2 = 0
     draw = False
     crop_win = 'Crop Selection'
+    inverted = False
 
     try:
         ret = win32gui.GetOpenFileNameW(None,
@@ -281,7 +287,13 @@ if __name__ == '__main__':
     cv2.imshow(thres_win, img)
     thresh = 0
     cv2.createTrackbar('Threshold', thres_win, 0, 255, thres_adj)
-    cv2.waitKey(0)
+    while True:
+        c = cv2.waitKey(0)
+        if c == 13:
+            break
+        if c == 73 or c == 105:
+            inverted = not inverted
+            thres_adj(thresh)
     # print('Calculating...')
     for cr in crop:
         if cr[0] > cr[1]:
@@ -289,4 +301,4 @@ if __name__ == '__main__':
         if cr[2] > cr[3]:
             cr[2], cr[3] = cr[3], cr[2]
 
-    multifile_process(filenames, crop, thresh)
+    multifile_process(filenames, crop, thresh, inverted=inverted, mag=60, pixel=3.45)

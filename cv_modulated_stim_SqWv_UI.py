@@ -80,12 +80,14 @@ def remove_click():
 
 
 def thres_adj(nn):
-    global thresh
+    global thresh, inverted
     thresh = nn
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret, binary1 = cv2.threshold(gray, nn, 255, cv2.THRESH_BINARY)
-    se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
-    binary = cv2.morphologyEx(binary1, cv2.MORPH_OPEN, se)
+    if inverted:
+        binary1 = cv2.bitwise_not(binary1)
+    # se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+
     bin_color = cv2.cvtColor(binary1, cv2.COLOR_GRAY2BGR)
     for cr in crop:
         rx1 = cr[0]
@@ -133,9 +135,11 @@ def blob_use_moments(img_crop, thresh):
     return M['m10'] / M['m00'], M['m01'] / M['m00']
 
 
-def ring_use_numpy(img_crop, thresh):
+def ring_use_numpy(img_crop, thresh, inverted=False):
     img_gray = cv2.cvtColor(img_crop, cv2.COLOR_BGR2GRAY)
     ret, binary = cv2.threshold(img_gray, thresh, 255, cv2.THRESH_BINARY)
+    if inverted:
+        binary = cv2.bitwise_not(binary)
     return ring_centroid(binary)
 
 
@@ -154,6 +158,7 @@ if __name__ == '__main__':
     y2 = 0
     draw = False
     crop_win = 'Crop Selection'
+    inverted = False
 
     try:
         ret = win32gui.GetOpenFileNameW(None,
@@ -208,7 +213,14 @@ if __name__ == '__main__':
     cv2.imshow(thres_win, img)
     thresh = 0
     cv2.createTrackbar('Threshold', thres_win, 0, 255, thres_adj)
-    cv2.waitKey(0)
+    while True:
+        c = cv2.waitKey(1)
+        if c==13:
+            break
+        if c== 73 or c==105:
+            inverted = not inverted
+            thres_adj(thresh)
+
     # print('Calculating...')
     for cr in crop:
         if cr[0] > cr[1]:
@@ -218,7 +230,9 @@ if __name__ == '__main__':
 
     l = len(crop)
     magEx = False
-    cali = hot_calibration(magEx=magEx)
+    pixel_size = 3.45
+    mag = 60
+    cali = hot_calibration(magEx=magEx, mag=mag, pixel=pixel_size)
     for filename in filenames:
         cap = cv2.VideoCapture(filename)
         total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -234,7 +248,7 @@ if __name__ == '__main__':
                 img_cr = img[crop[i][2]:crop[i][3], crop[i][0]:crop[i][1]]
                 # cc_x[i, frame], cc_y[i, frame] = blob_use_detector(img_cr, thresh)
                 # cc2_x[i, frame], cc2_y[i, frame] = blob_use_moments(img_cr, thresh)
-                cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh)
+                cc2_x[i, frame], cc2_y[i, frame] = ring_use_numpy(img_cr, thresh, inverted=inverted)
             ret, img = cap.read()
         print('Video analysis finished.')
 
