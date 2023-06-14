@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.axes._axes as axes
 import matplotlib.figure as figure
 from hot_calibration import hot_calibration
-
+from PyQt5.QtWidgets import  QApplication,QMainWindow
 import csv
 from datetime import datetime
 import pywintypes
@@ -102,6 +102,9 @@ if __name__ == '__main__':
     crop_win = 'Crop Selection'
     inverted = False
 
+    app = QApplication(sys.argv)
+    ui = QMainWindow()
+    ui.show()
     try:
         ret = win32gui.GetOpenFileNameW(None,
                                         Flags=win32con.OFN_ALLOWMULTISELECT | win32con.OFN_FILEMUSTEXIST | win32con.OFN_HIDEREADONLY | win32con.OFN_EXPLORER,
@@ -124,7 +127,6 @@ if __name__ == '__main__':
             filenames.append(os.path.join(dirname, filename))
 
     img = cv2.imread(filenames[0], cv2.IMREAD_COLOR)
-
 
     # print(f'Video has {total_frame} frames.')
     crop = []
@@ -164,3 +166,25 @@ if __name__ == '__main__':
             inverted = not inverted
             thres_adj(thresh)
     # print('Calculating...')
+
+    for cr in crop:
+        if cr[0] > cr[1]:
+            cr[0], cr[1] = cr[1], cr[0]
+        if cr[2] > cr[3]:
+            cr[2], cr[3] = cr[3], cr[2]
+
+    for file in filenames:
+        img = cv2.imread(file)
+        for cr in crop:
+            img_cr = img[cr[2]:cr[3], cr[0]:cr[1]]
+            img_gray_cr = cv2.cvtColor(img_cr, cv2.COLOR_BGR2GRAY)
+            ret, img_bi = cv2.threshold(img_gray_cr, thresh, 255, cv2.THRESH_BINARY)
+            contours, hierarchy = cv2.findContours(img_bi, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area > 20:
+                    cv2.drawContours(img_cr, contour, -1, (0, 0, 255), 1)
+                    cv2.imshow('cnt', img_cr)
+                    cv2.waitKey(0)
+
+    app.exit(0)
